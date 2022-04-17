@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	ceyeApi    = "fcb18e2ef4317cd86a1bd899c8dff47a"
-	ceyeDomain = "fscan.j6vukt.ceye.io"
+	ceyeApi    = "a78a1cb49d91fe09e01876078d1868b2"
+	ceyeDomain = "7wtusr.ceye.io"
 )
 
 type Task struct {
