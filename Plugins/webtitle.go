@@ -10,7 +10,6 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -22,7 +21,7 @@ import (
 func WebTitle(info *common.HostInfo) error {
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
-	if common.IsWebCan == false && err == nil {
+	if common.IsWebCan == false && common.IsBrute == false && err == nil {
 		WebScan.WebScan(info)
 	} else {
 		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
@@ -218,13 +217,23 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 		return
 	}
 
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(Timeout) * time.Second}, "tcp", host, &tls.Config{InsecureSkipVerify: true})
+	socksconn, err := common.WrapperTcpWithTimeout("tcp", host, time.Duration(Timeout)*time.Second)
+	if err != nil {
+		return
+	}
+	conn := tls.Client(socksconn, &tls.Config{InsecureSkipVerify: true})
 	defer func() {
 		if conn != nil {
+			defer func() {
+				if err := recover(); err != nil {
+					common.LogError(err)
+				}
+			}()
 			conn.Close()
 		}
 	}()
-
+	conn.SetDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	err = conn.Handshake()
 	if err == nil || strings.Contains(err.Error(), "handshake failure") {
 		protocol = "https"
 	}

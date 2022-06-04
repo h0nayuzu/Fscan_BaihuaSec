@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"embed"
 	"fmt"
 	"github.com/google/cel-go/cel"
 	"github.com/shadow1ng/fscan/WebScan/info"
@@ -26,7 +25,7 @@ type Task struct {
 	Poc *Poc
 }
 
-func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string) {
+func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 	tasks := make(chan Task)
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
@@ -41,7 +40,7 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 			}
 		}()
 	}
-	for _, poc := range LoadMultiPoc(Pocs, pocname) {
+	for _, poc := range pocs {
 		task := Task{
 			Req: req,
 			Poc: poc,
@@ -164,6 +163,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	}
 
 	DealWithRule := func(rule Rules) (bool, error) {
+		Headers := cloneMap(rule.Headers)
 		var (
 			flag, ok bool
 		)
@@ -173,8 +173,11 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 				continue
 			}
 			value := fmt.Sprintf("%v", v1)
-			for k2, v2 := range rule.Headers {
-				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
+			for k2, v2 := range Headers {
+				if !strings.Contains(v2, "{{"+k1+"}}") {
+					continue
+				}
+				Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
 			}
 			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
 			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
@@ -191,10 +194,9 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 
 		newRequest, _ := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
 		newRequest.Header = oReq.Header.Clone()
-		for k, v := range rule.Headers {
+		for k, v := range Headers {
 			newRequest.Header.Set(k, v)
 		}
-
 		resp, err := DoRequest(newRequest, rule.FollowRedirects)
 		if err != nil {
 			return false, err
@@ -244,7 +246,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 
 	if len(p.Rules) > 0 {
 		success = DealWithRules(p.Rules)
-	} else { // Groups
+	} else {
 		for name, rules := range p.Groups {
 			success = DealWithRules(rules)
 			if success {
@@ -595,6 +597,7 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 							return false, err
 						}
 						if success == true {
+							common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s %s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, var1, var2, var3))
 							break look3
 						}
 					}
@@ -717,7 +720,7 @@ func evalset(env *cel.Env, variableMap map[string]interface{}) {
 		if strings.Contains(k, "payload") {
 			out, err := Evaluate(env, expression, variableMap)
 			if err != nil {
-				//fmt.Println(err)
+				fmt.Println(err)
 				variableMap[k] = expression
 			} else {
 				variableMap[k] = fmt.Sprintf("%v", out)

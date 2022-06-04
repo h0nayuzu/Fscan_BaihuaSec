@@ -1,18 +1,18 @@
 package main
 
-import ( //导包
+import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Plugins"
 	"github.com/shadow1ng/fscan/common"
 	"time"
 )
 
-func main() { //主函数
+func main() {
 	start := time.Now()
-	var Info common.HostInfo // 这是结构体
-	common.Flag(&Info)       // 输出Banner
-	common.Parse(&Info)      // 格式化IP
-	Plugins.Scan(Info)       // 传入结构体，然后配置进行扫描
+	var Info common.HostInfo
+	common.Flag(&Info)
+	common.Parse(&Info)
+	Plugins.Scan(Info)
 	t := time.Now().Sub(start)
 	fmt.Printf("[*] 扫描结束,耗时: %s", t)
 }

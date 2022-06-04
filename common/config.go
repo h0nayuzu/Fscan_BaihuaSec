@@ -1,9 +1,9 @@
 package common
 
-var version = "1.7.0.1"
+var version = "1.7.1.1"
 var Userdict = map[string][]string{
 	"ftp":        {"ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
-	"mysql":      {"root", "mysql"},
+	"mysql":      {"root", "mysql", "admin"},
 	"mssql":      {"sa", "sql"},
 	"smb":        {"administrator", "admin", "guest"},
 	"rdp":        {"administrator", "admin", "guest"},
@@ -92,6 +92,8 @@ var (
 	Userfile      string
 	Passfile      string
 	HostFile      string
+	PortFile      string
+	PocPath       string
 	Threads       int
 	URL           string
 	UrlFile       string
@@ -104,4 +106,5 @@ var (
 	PassAdd       string
 	BruteThread   int
 	LiveTop       int
+	Socks5Proxy   string
 )

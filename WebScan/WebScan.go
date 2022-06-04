@@ -6,39 +6,29 @@ import (
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
-	"time"
+	"sync"
 )
 
 //go:embed pocs
 var Pocs embed.FS
+var once sync.Once
+var AllPocs []*lib.Poc
 
 func WebScan(info *common.HostInfo) {
+	once.Do(initpoc)
 	var pocinfo = common.Pocinfo
 	buf := strings.Split(info.Url, "/")
 	pocinfo.Target = strings.Join(buf[:3], "/")
 
-	var flag bool
-	go func() {
-		time.Sleep(60 * time.Second)
-		flag = true
-	}()
-
-	go func() {
-		if pocinfo.PocName != "" {
+	if pocinfo.PocName != "" {
+		Execute(pocinfo)
+	} else {
+		for _, infostr := range info.Infostr {
+			pocinfo.PocName = lib.CheckInfoPoc(infostr)
 			Execute(pocinfo)
-		} else {
-			for _, infostr := range info.Infostr {
-				pocinfo.PocName = lib.CheckInfoPoc(infostr)
-				Execute(pocinfo)
-			}
-		}
-		flag = true
-	}()
-
-	for {
-		if flag {
-			return
 		}
 	}
 }
@@ -46,7 +36,7 @@ func WebScan(info *common.HostInfo) {
 func Execute(PocInfo common.PocInfo) {
 	req, err := http.NewRequest("GET", PocInfo.Target, nil)
 	if err != nil {
-		errlog := fmt.Sprintf("[-] webtitle %v %v", PocInfo.Target, err)
+		errlog := fmt.Sprintf("[-] webpocinit %v %v", PocInfo.Target, err)
 		common.LogError(errlog)
 		return
 	}
@@ -54,5 +44,55 @@ func Execute(PocInfo common.PocInfo) {
 	if PocInfo.Cookie != "" {
 		req.Header.Set("Cookie", PocInfo.Cookie)
 	}
-	lib.CheckMultiPoc(req, Pocs, PocInfo.Num, PocInfo.PocName)
+	pocs := filterPoc(PocInfo.PocName)
+	lib.CheckMultiPoc(req, pocs, PocInfo.Num)
+}
+
+func initpoc() {
+	if common.PocPath == "" {
+		entries, err := Pocs.ReadDir("pocs")
+		if err != nil {
+			fmt.Printf("[-] init poc error: %v", err)
+			return
+		}
+		for _, one := range entries {
+			path := one.Name()
+			if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
+				if poc, _ := lib.LoadPoc(path, Pocs); poc != nil {
+					AllPocs = append(AllPocs, poc)
+				}
+			}
+		}
+	} else {
+		err := filepath.Walk(common.PocPath,
+			func(path string, info os.FileInfo, err error) error {
+				if err != nil || info == nil {
+					return err
+				}
+				if !info.IsDir() {
+					if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
+						poc, _ := lib.LoadPocbyPath(path)
+						if poc != nil {
+							AllPocs = append(AllPocs, poc)
+						}
+					}
+				}
+				return nil
+			})
+		if err != nil {
+			fmt.Printf("[-] init poc error: %v", err)
+		}
+	}
+}
+
+func filterPoc(pocname string) (pocs []*lib.Poc) {
+	if pocname == "" {
+		return AllPocs
+	}
+	for _, poc := range AllPocs {
+		if strings.Contains(poc.Name, pocname) {
+			pocs = append(pocs, poc)
+		}
+	}
+	return
 }

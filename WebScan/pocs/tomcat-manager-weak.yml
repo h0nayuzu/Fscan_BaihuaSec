@@ -5,6 +5,7 @@ sets:
     - admin
     - root
     - manager
+    - s3cret
   password:
     - ""
     - admin

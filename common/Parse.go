@@ -11,15 +11,14 @@ import (
 	"strings"
 )
 
-func Parse(Info *HostInfo) { //传递结构体指针。做了统一的接口。很干净。
-	ParseScantype(Info) //配置扫描类型，应该通过不同字符串去调用加载器。
-	ParseUser(Info)     //读取用户名
-	ParsePass(Info)     //读取密码
-	ParseInput(Info)    //写入信息
-	//后面全是方法的实现过程
+func Parse(Info *HostInfo) {
+	ParseUser(Info)
+	ParsePass(Info)
+	ParseInput(Info)
+	ParseScantype(Info)
 }
 
-func ParseUser(Info *HostInfo) { //读用户列表
+func ParseUser(Info *HostInfo) {
 	if Info.Username == "" && Userfile == "" {
 		return
 	}
@@ -45,7 +44,7 @@ func ParseUser(Info *HostInfo) { //读用户列表
 	}
 }
 
-func ParsePass(Info *HostInfo) { // 读密码列表
+func ParsePass(Info *HostInfo) {
 	if Info.Password != "" {
 		passs := strings.Split(Info.Password, ",")
 		for _, pass := range passs {
@@ -80,9 +79,21 @@ func ParsePass(Info *HostInfo) { // 读密码列表
 			}
 		}
 	}
+	if PortFile != "" {
+		ports, err := Readfile(PortFile)
+		if err == nil {
+			newport := ""
+			for _, port := range ports {
+				if port != "" {
+					newport += port + ","
+				}
+			}
+			Info.Ports = newport
+		}
+	}
 }
 
-func Readfile(filename string) ([]string, error) { // 读扫描目标
+func Readfile(filename string) ([]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Printf("Open %s error, %v\n", filename, err)
@@ -101,13 +112,16 @@ func Readfile(filename string) ([]string, error) { // 读扫描目标
 	return content, nil
 }
 
-func ParseInput(Info *HostInfo) { // 判断目标是否存在 然后写入信息包括端口
+func ParseInput(Info *HostInfo) {
 	if Info.Host == "" && HostFile == "" && URL == "" && UrlFile == "" {
 		fmt.Println("Host is none")
 		flag.Usage()
 		os.Exit(0)
 	}
 
+	if BruteThread <= 0 {
+		BruteThread = 1
+	}
 	if TmpOutputfile != "" {
 		if !strings.Contains(Outputfile, "/") && !strings.Contains(Outputfile, `\`) {
 			Outputfile = getpath() + TmpOutputfile
@@ -145,7 +159,7 @@ func ParseInput(Info *HostInfo) { // 判断目标是否存在 然后写入信息
 	}
 }
 
-func ParseScantype(Info *HostInfo) { // 设置扫描类型
+func ParseScantype(Info *HostInfo) {
 	_, ok := PORTList[Info.Scantype]
 	if !ok {
 		showmode()
@@ -155,8 +169,6 @@ func ParseScantype(Info *HostInfo) { // 设置扫描类型
 			switch Info.Scantype {
 			case "rdp":
 				Info.Ports = "3389"
-			case "wmi":
-				Info.Ports = "135"
 			case "web":
 				Info.Ports = Webport
 			case "webonly":
@@ -164,8 +176,6 @@ func ParseScantype(Info *HostInfo) { // 设置扫描类型
 			case "ms17010":
 				Info.Ports = "445"
 			case "cve20200796":
-				Info.Ports = "445"
-			case "smb2":
 				Info.Ports = "445"
 			case "portscan":
 				Info.Ports = DefaultPorts + "," + Webport
@@ -180,7 +190,7 @@ func ParseScantype(Info *HostInfo) { // 设置扫描类型
 	}
 }
 
-func CheckErr(text string, err error, flag bool) { // 异常输出
+func CheckErr(text string, err error, flag bool) {
 	if err != nil {
 		fmt.Println("Parse", text, "error: ", err.Error())
 		if flag {
@@ -192,7 +202,7 @@ func CheckErr(text string, err error, flag bool) { // 异常输出
 	}
 }
 
-func getpath() string { // 获取路径
+func getpath() string {
 	file, _ := exec.LookPath(os.Args[0])
 	path1, _ := filepath.Abs(file)
 	filename := filepath.Dir(path1)
@@ -209,7 +219,7 @@ func getpath() string { // 获取路径
 	return path
 }
 
-func showmode() { // 模式选择错误
+func showmode() {
 	fmt.Println("The specified scan type does not exist")
 	fmt.Println("-m")
 	for name := range PORTList {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gopkg.in/yaml.v3"
+	"io/ioutil"
 	"math"
 	"strings"
 )
@@ -385,7 +386,7 @@ var fileDescriptor_11b04836674e6f94 = []byte{
 func LoadMultiPoc(Pocs embed.FS, pocname string) []*Poc {
 	var pocs []*Poc
 	for _, f := range SelectPoc(Pocs, pocname) {
-		if p, err := loadPoc(f, Pocs); err == nil {
+		if p, err := LoadPoc(f, Pocs); err == nil {
 			pocs = append(pocs, p)
 		} else {
 			fmt.Println("[-] load poc ", f, " error:", err)
@@ -394,15 +395,17 @@ func LoadMultiPoc(Pocs embed.FS, pocname string) []*Poc {
 	return pocs
 }
 
-func loadPoc(fileName string, Pocs embed.FS) (*Poc, error) {
+func LoadPoc(fileName string, Pocs embed.FS) (*Poc, error) {
 	p := &Poc{}
 	yamlFile, err := Pocs.ReadFile("pocs/" + fileName)
 
 	if err != nil {
+		fmt.Printf("[-] load poc %s error: %v", fileName, err)
 		return nil, err
 	}
 	err = yaml.Unmarshal(yamlFile, p)
 	if err != nil {
+		fmt.Printf("[-] load poc %s error: %v", fileName, err)
 		return nil, err
 	}
 	return p, err
@@ -420,4 +423,19 @@ func SelectPoc(Pocs embed.FS, pocname string) []string {
 		}
 	}
 	return foundFiles
+}
+
+func LoadPocbyPath(fileName string) (*Poc, error) {
+	p := &Poc{}
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		fmt.Printf("[-] load poc %s error: %v", fileName, err)
+		return nil, err
+	}
+	err = yaml.Unmarshal(data, p)
+	if err != nil {
+		fmt.Printf("[-] load poc %s error: %v", fileName, err)
+		return nil, err
+	}
+	return p, err
 }
